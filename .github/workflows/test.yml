@@ -2,6 +2,9 @@ name: Test
 
 on:
   pull_request:
+    branches:
+      - master
+      - no-nicom
   push:
   schedule:
     # run weekly to ensure that we are still good

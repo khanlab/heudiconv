@@ -1,8 +1,11 @@
 name: Type-check
 
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+    branches:
+      - master
+      - no-nicom
 
 jobs:
   typing:
