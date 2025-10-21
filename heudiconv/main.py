@@ -62,6 +62,7 @@ def process_extra_commands(
     subjs: Optional[list[str]],
     grouping: str,
     use_enhanced_dicom: bool = False,
+    no_sanitize_jsons: bool = False,
 ) -> None:
     """
     Perform custom command instead of regular operations. Supported commands:
@@ -86,6 +87,8 @@ def process_extra_commands(
     use_enhanced_dicom : bool, optional
         Use enhanced DICOM metadata extraction module for multi-frame
         Enhanced DICOM files. Default is False.
+    no_sanitize_jsons : bool, optional
+        Disable removal of sensitive date/time information from JSON sidecar files.
     """
 
     def ensure_has_files() -> None:
@@ -133,7 +136,7 @@ def process_extra_commands(
     elif command == "sanitize-jsons":
         ensure_has_files()
         assert files is not None  # for mypy now
-        tuneup_bids_json_files(files)
+        tuneup_bids_json_files(files, sanitize=not no_sanitize_jsons)
     elif command == "heuristics":
         from .utils import get_known_heuristics_with_descriptions
 
@@ -241,6 +244,7 @@ def workflow(
     queue: Optional[str] = None,
     queue_args: Optional[str] = None,
     use_enhanced_dicom: bool = False,
+    no_sanitize_jsons: bool = False,
 ) -> None:
     """Run the HeuDiConv conversion workflow.
 
@@ -332,6 +336,10 @@ def workflow(
         Use enhanced DICOM metadata extraction module for multi-frame
         Enhanced DICOM files. This provides better handling of Enhanced MR
         images with multi-frame data. Default is False.
+    no_sanitize_jsons : bool, optional
+        Disable removal of sensitive date/time information from JSON sidecar files.
+        By default, AcquisitionDate, AcquisitionDateTime, StudyDate, StudyDateTime,
+        SeriesDate, and SeriesDateTime fields are removed from JSON files. Default is False.
 
     Notes
     -----
@@ -395,6 +403,7 @@ def workflow(
             subjs,
             grouping,
             use_enhanced_dicom,
+            no_sanitize_jsons,
         )
         return
     #
@@ -506,6 +515,7 @@ def workflow(
             dcmconfig=dcmconfig,
             grouping=grouping,
             use_enhanced_dicom=use_enhanced_dicom,
+            no_sanitize_jsons=no_sanitize_jsons,
         )
 
         lgr.info(
