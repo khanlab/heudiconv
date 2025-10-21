@@ -5,6 +5,7 @@ from __future__ import annotations
 import os.path as op
 from pathlib import Path
 
+import pytest
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import ImplicitVRLittleEndian
 
@@ -257,3 +258,126 @@ def test_extract_metadata_without_dimension_index(tmp_path: Path) -> None:
     # Should still extract other Enhanced metadata
     assert metadata["NumberOfFrames"] == 120
     assert "Dimensions" not in metadata
+
+
+def test_cli_use_enhanced_dicom_option(tmp_path: Path) -> None:
+    """Test that --use-enhanced-dicom CLI option is properly parsed and used."""
+    from heudiconv.cli.run import get_parser
+
+    parser = get_parser()
+
+    # Test that the option exists and defaults to False
+    args = parser.parse_args(["--files", str(tmp_path), "-f", "convertall"])
+    assert hasattr(args, "use_enhanced_dicom")
+    assert args.use_enhanced_dicom is False
+
+    # Test that the option can be set to True
+    args = parser.parse_args(
+        ["--files", str(tmp_path), "-f", "convertall", "--use-enhanced-dicom"]
+    )
+    assert args.use_enhanced_dicom is True
+
+
+def test_enhanced_dicom_cli_integration(tmp_path: Path) -> None:
+    """Integration test for --use-enhanced-dicom flag with CLI commands."""
+    from heudiconv.cli.run import main as runner
+    from heudiconv.tests.utils import TESTS_DATA_PATH
+    import os.path as op
+
+    # Create some test DICOM files
+    test_file = op.join(TESTS_DATA_PATH, "axasc35.dcm")
+    if not op.exists(test_file):
+        pytest.skip("Test DICOM file not available")
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    # Test with ls command and enhanced DICOM
+    runner([
+        "--command", "ls",
+        "--files", test_file,
+        "-f", "convertall",
+        "--subjects", "test01",
+        "--use-enhanced-dicom",
+        "--grouping", "all",
+    ])
+    # If it doesn't crash, the test passes
+
+    # Test conversion with enhanced DICOM (converter=none to skip actual conversion)
+    runner([
+        "--files", test_file,
+        "-f", "convertall",
+        "--subjects", "test02",
+        "--use-enhanced-dicom",
+        "-o", str(output_dir),
+        "-c", "none",
+    ])
+
+    # Verify that the output directory was created
+    assert output_dir.exists()
+
+    # Test that standard mode still works
+    runner([
+        "--files", test_file,
+        "-f", "convertall",
+        "--subjects", "test03",
+        "-o", str(output_dir),
+        "-c", "none",
+    ])
+
+
+def test_group_dicoms_with_enhanced_option(tmp_path: Path) -> None:
+    """Test group_dicoms_into_seqinfos with use_enhanced_dicom option."""
+    from heudiconv.dicoms import group_dicoms_into_seqinfos
+    from heudiconv.dicom.enhanced import group_dicoms_into_seqinfos_enhanced
+    from heudiconv.tests.utils import TESTS_DATA_PATH
+
+    # Use an existing test DICOM file
+    test_file = op.join(TESTS_DATA_PATH, "axasc35.dcm")
+    if not op.exists(test_file):
+        pytest.skip("Test DICOM file not available")
+
+    # Test with standard dicomwrapper-based function
+    seqinfo_dict_default = group_dicoms_into_seqinfos(
+        [test_file],
+        "studyUID",
+        flatten=True,
+    )
+    assert len(seqinfo_dict_default) > 0
+
+    # Test with enhanced DICOM function
+    seqinfo_dict_enhanced = group_dicoms_into_seqinfos_enhanced(
+        [test_file],
+        "studyUID",
+    )
+    assert len(seqinfo_dict_enhanced) > 0
+
+    # Standard function should produce valid seqinfo
+    for seqinfo in seqinfo_dict_default.keys():
+        assert seqinfo.series_uid is not None
+
+
+def test_create_seqinfo_with_enhanced_option(tmp_path: Path) -> None:
+    """Test create_seqinfo with use_enhanced_dicom option."""
+    from heudiconv.dicoms import create_seqinfo
+    from heudiconv.dicom.enhanced import validate_dicom_enhanced
+    import nibabel.nicom.dicomwrappers as dw
+    from heudiconv.tests.utils import TESTS_DATA_PATH
+
+    # Use an existing test DICOM file
+    dcm_file = op.join(TESTS_DATA_PATH, "axasc35.dcm")
+    if not op.exists(dcm_file):
+        pytest.skip("Test DICOM file not available")
+
+    # Test with standard dicomwrapper-based function
+    mw = dw.wrapper_from_file(dcm_file, force=True, stop_before_pixels=True)
+    seqinfo_default = create_seqinfo(mw, [dcm_file], "1-test")
+    assert seqinfo_default is not None
+    assert seqinfo_default.series_uid is not None
+
+    # Test with enhanced DICOM function
+    result = validate_dicom_enhanced(dcm_file, None)
+    assert result is not None
+    ds, series_id, study_uid = result
+    assert series_id is not None
+    assert study_uid is not None
