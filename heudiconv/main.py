@@ -61,6 +61,7 @@ def process_extra_commands(
     session: Optional[str],
     subjs: Optional[list[str]],
     grouping: str,
+    use_enhanced_dicom: bool = False,
     no_sanitize_jsons: bool = False,
 ) -> None:
     """
@@ -83,6 +84,9 @@ def process_extra_commands(
         List of subject identifiers
     grouping : {'studyUID', 'accession_number', 'all', 'custom'}
         How to group dicoms.
+    use_enhanced_dicom : bool, optional
+        Use enhanced DICOM metadata extraction module for multi-frame
+        Enhanced DICOM files. Default is False.
     no_sanitize_jsons : bool, optional
         Disable removal of sensitive date/time information from JSON sidecar files.
     """
@@ -112,6 +116,7 @@ def process_extra_commands(
                 session,
                 subjs,
                 grouping=grouping,
+                use_enhanced_dicom=use_enhanced_dicom,
             )
             print(fname)
             for study_session, sequences in study_sessions.items():
@@ -238,6 +243,7 @@ def workflow(
     dcmconfig: Optional[str] = None,
     queue: Optional[str] = None,
     queue_args: Optional[str] = None,
+    use_enhanced_dicom: bool = False,
     no_sanitize_jsons: bool = False,
 ) -> None:
     """Run the HeuDiConv conversion workflow.
@@ -326,6 +332,10 @@ def workflow(
     queue_args : str or None, optional
         Additional queue arguments passed as single string of space-separated
         Argument=Value pairs. Default is None.
+    use_enhanced_dicom : bool, optional
+        Use enhanced DICOM metadata extraction module for multi-frame
+        Enhanced DICOM files. This provides better handling of Enhanced MR
+        images with multi-frame data. Default is False.
     no_sanitize_jsons : bool, optional
         Disable removal of sensitive date/time information from JSON sidecar files.
         By default, AcquisitionDate, AcquisitionDateTime, StudyDate, StudyDateTime,
@@ -392,6 +402,7 @@ def workflow(
             session,
             subjs,
             grouping,
+            use_enhanced_dicom,
             no_sanitize_jsons,
         )
         return
@@ -424,6 +435,7 @@ def workflow(
         session,
         subjs,
         grouping=grouping,
+        use_enhanced_dicom=use_enhanced_dicom,
     )
 
     # extract tarballs, and replace their entries with expanded lists of files
@@ -502,6 +514,7 @@ def workflow(
             overwrite=overwrite,
             dcmconfig=dcmconfig,
             grouping=grouping,
+            use_enhanced_dicom=use_enhanced_dicom,
             no_sanitize_jsons=no_sanitize_jsons,
         )
 
