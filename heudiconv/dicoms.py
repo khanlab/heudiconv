@@ -60,8 +60,7 @@ compresslevel = 9
 
 
 class CustomSeqinfoT(Protocol):
-    def __call__(self, wrapper: dw.Wrapper, series_files: list[str]) -> Hashable:
-        ...
+    def __call__(self, wrapper: dw.Wrapper, series_files: list[str]) -> Hashable: ...
 
 
 def create_seqinfo(
@@ -69,7 +68,6 @@ def create_seqinfo(
     series_files: list[str],
     series_id: str,
     custom_seqinfo: CustomSeqinfoT | None = None,
-    use_enhanced_dicom: bool = False,
 ) -> SeqInfo:
     """Generate sequence info
 
@@ -79,36 +77,9 @@ def create_seqinfo(
     series_files: list
     series_id: str
     custom_seqinfo: callable, optional
-    use_enhanced_dicom: bool, optional
-        If True, use enhanced DICOM metadata extraction for multi-frame files
     """
     dcminfo = mw.dcm_data
     accession_number = dcminfo.get("AccessionNumber")
-
-    # If using enhanced DICOM module, try to extract metadata with it
-    if use_enhanced_dicom and series_files:
-        from .dicom.enhanced import extract_metadata
-
-        try:
-            enhanced_meta = extract_metadata(series_files[0])
-            lgr.debug(
-                "Using enhanced DICOM metadata extraction for series %s", series_id
-            )
-            # If enhanced metadata has NumberOfFrames, it's likely an Enhanced DICOM
-            if enhanced_meta.get("NumberOfFrames"):
-                lgr.info(
-                    "Detected Enhanced DICOM with %d frames for series %s",
-                    enhanced_meta["NumberOfFrames"],
-                    series_id,
-                )
-        except Exception as e:
-            lgr.debug(
-                "Enhanced DICOM metadata extraction failed for %s: %s", series_id, e
-            )
-            # Fall back to standard extraction
-            enhanced_meta = None
-    else:
-        enhanced_meta = None
 
     # TODO: do not group echoes by default
     size: list[int] = list(mw.image_shape) + [len(series_files)]
@@ -194,7 +165,6 @@ def create_seqinfo(
 def validate_dicom(
     fl: str,
     dcmfilter: Optional[Callable[[dcm.dataset.Dataset], Any]],
-    use_enhanced_dicom: bool = False,
 ) -> Optional[tuple[dw.Wrapper, tuple[int, str], Optional[str]]]:
     """
     Parse DICOM attributes. Returns None if not valid.
@@ -205,26 +175,7 @@ def validate_dicom(
         Path to DICOM file
     dcmfilter : callable, optional
         Filter function to apply to DICOM dataset
-    use_enhanced_dicom : bool, optional
-        If True, use enhanced DICOM metadata extraction for multi-frame files
     """
-    # If using enhanced DICOM module, try to extract metadata with it first
-    if use_enhanced_dicom:
-        from .dicom.enhanced import extract_metadata
-
-        try:
-            extract_metadata(fl)
-            lgr.debug(
-                "Using enhanced DICOM metadata extraction for validation of %s", fl
-            )
-            # If enhanced metadata extraction succeeds, we can use it to supplement
-            # or validate the standard wrapper-based extraction
-        except Exception as e:
-            lgr.debug(
-                "Enhanced DICOM metadata extraction failed for %s: %s", fl, e
-            )
-            # Fall back to standard extraction
-
     mw = dw.wrapper_from_file(fl, force=True, stop_before_pixels=True)
     # Workaround for protocol name in private siemens csa header
     if not getattr(mw.dcm_data, "ProtocolName", "").strip():
@@ -282,16 +233,16 @@ def group_dicoms_into_seqinfos(
     file_filter: Optional[Callable[[str], Any]] = None,
     dcmfilter: Optional[Callable[[dcm.dataset.Dataset], Any]] = None,
     flatten: Literal[False] = False,
-    custom_grouping: str
-    | Callable[
-        [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
-        dict[SeqInfo, list[str]],
-    ]
-    | None = None,
+    custom_grouping: (
+        str
+        | Callable[
+            [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
+            dict[SeqInfo, list[str]],
+        ]
+        | None
+    ) = None,
     custom_seqinfo: CustomSeqinfoT | None = None,
-    use_enhanced_dicom: bool = False,
-) -> dict[Optional[str], dict[SeqInfo, list[str]]]:
-    ...
+) -> dict[Optional[str], dict[SeqInfo, list[str]]]: ...
 
 
 @overload
@@ -302,16 +253,16 @@ def group_dicoms_into_seqinfos(
     dcmfilter: Optional[Callable[[dcm.dataset.Dataset], Any]] = None,
     *,
     flatten: Literal[True],
-    custom_grouping: str
-    | Callable[
-        [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
-        dict[SeqInfo, list[str]],
-    ]
-    | None = None,
+    custom_grouping: (
+        str
+        | Callable[
+            [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
+            dict[SeqInfo, list[str]],
+        ]
+        | None
+    ) = None,
     custom_seqinfo: CustomSeqinfoT | None = None,
-    use_enhanced_dicom: bool = False,
-) -> dict[SeqInfo, list[str]]:
-    ...
+) -> dict[SeqInfo, list[str]]: ...
 
 
 def group_dicoms_into_seqinfos(
@@ -320,14 +271,15 @@ def group_dicoms_into_seqinfos(
     file_filter: Optional[Callable[[str], Any]] = None,
     dcmfilter: Optional[Callable[[dcm.dataset.Dataset], Any]] = None,
     flatten: Literal[False, True] = False,
-    custom_grouping: str
-    | Callable[
-        [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
-        dict[SeqInfo, list[str]],
-    ]
-    | None = None,
+    custom_grouping: (
+        str
+        | Callable[
+            [list[str], Optional[Callable[[dcm.dataset.Dataset], Any]], type[SeqInfo]],
+            dict[SeqInfo, list[str]],
+        ]
+        | None
+    ) = None,
     custom_seqinfo: CustomSeqinfoT | None = None,
-    use_enhanced_dicom: bool = False,
 ) -> dict[Optional[str], dict[SeqInfo, list[str]]] | dict[SeqInfo, list[str]]:
     """Process list of dicoms and return seqinfo and file group
     `seqinfo` contains per-sequence extract of fields from DICOMs which
@@ -395,7 +347,7 @@ def group_dicoms_into_seqinfos(
 
     removeidx = []
     for idx, filename in enumerate(files):
-        mwinfo = validate_dicom(filename, dcmfilter, use_enhanced_dicom)
+        mwinfo = validate_dicom(filename, dcmfilter)
         if mwinfo is None:
             removeidx.append(idx)
             continue
@@ -473,9 +425,7 @@ def group_dicoms_into_seqinfos(
             else:
                 # nothing to see here, just move on
                 continue
-        seqinfo = create_seqinfo(
-            mw, series_files, series_id_str, custom_seqinfo, use_enhanced_dicom
-        )
+        seqinfo = create_seqinfo(mw, series_files, series_id_str, custom_seqinfo)
 
         key: Optional[str]
         if per_studyUID:
