@@ -271,6 +271,8 @@ def create_seqinfo_enhanced(
     # Convert to float, defaulting to 0 if still None
     TR = float(TR) if TR is not None else 0.0
     empty_list = []
+
+    TE = 0.0
     if TE is None:
         for i in range(0,len(ds.PerFrameFunctionalGroupsSequence)):
                 for j in range(0, len(ds.PerFrameFunctionalGroupsSequence[i].MREchoSequence)):
